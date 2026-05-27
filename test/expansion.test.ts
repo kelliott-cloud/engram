@@ -22,6 +22,15 @@ const BASE_CONFIG: LcmConfig = {
   autocompactDisabled: false,
   timezone: "UTC",
   pruneHeartbeatOk: false,
+  vaultEnabled: false,
+  vaultPath: "",
+  vaultSubdir: "Engram",
+  vaultHomeNoteName: "Home",
+  vaultManualFolders: "Inbox,Manual",
+  vaultClean: true,
+  vaultReportsEnabled: true,
+  obsidianMode: "curated",
+  obsidianExportDiagnostics: false,
 };
 
 function makeExpansionResult() {

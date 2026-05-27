@@ -19,6 +19,7 @@
     "conversation-memory",
     "dag"
   ],
+  "sideEffects": false,
   "files": [
     "dist/",
     "openclaw.plugin.json",
@@ -45,12 +46,17 @@
     "@changesets/cli": "^2.30.0",
     "@mariozechner/pi-coding-agent": "0.73.1",
     "@types/node": "^22.10.0",
-    "openclaw": "*",
+    "openclaw": "2026.5.22",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
   "peerDependencies": {
-    "openclaw": "*"
+    "openclaw": ">=2026.5.0 <2027.0.0"
+  },
+  "overrides": {
+    "@mariozechner/pi-agent-core": "0.73.1",
+    "@mariozechner/pi-ai": "0.73.1",
+    "@mariozechner/pi-coding-agent": "0.73.1"
   },
   "engines": {
     "node": ">=22.12"

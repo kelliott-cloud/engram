@@ -1,0 +1,51 @@
+# Defense-in-depth: the `files` allowlist in package.json already restricts the
+# published tarball to dist/, openclaw.plugin.json, docs/, README.md, LICENSE.
+# This file blocks anything sensitive in case the allowlist is ever relaxed.
+
+# Source and tests
+src/
+test/
+tui/
+specs/
+index.ts
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+
+# Local state and runtime data
+.pebbles/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+
+# Secrets and environment
+.env
+.env.*
+*.pem
+*.key
+*.p12
+credentials.json
+
+# Build configuration not needed at runtime
+tsconfig.json
+tsconfig.build.json
+.changeset/
+.goreleaser.yml
+.github/
+.vscode/
+.idea/
+
+# Misc local files
+.DS_Store
+*.log
+*.tsbuildinfo
+.worktrees/
+opencode.json
+assets/
+
+# Release docs not needed at runtime
+RELEASING.md
+CHANGELOG.md

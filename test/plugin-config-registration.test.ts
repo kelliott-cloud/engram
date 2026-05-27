@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import lcmPlugin from "../index.js";
@@ -139,7 +139,7 @@ describe("lcm plugin registration", () => {
       largeFileTokenThreshold: 12345,
     });
     expect(infoLog).toHaveBeenCalledWith(
-      `[lcm] Plugin loaded (enabled=true, db=${dbPath}, threshold=0.33)`,
+      `[lcm] Plugin loaded (enabled=true, db=<configured>/${basename(dbPath)}, threshold=0.33)`,
     );
   });
 

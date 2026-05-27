@@ -5,7 +5,7 @@
  * full-text search, and sub-agent expansion.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { resolveLcmConfig } from "./src/db/config.js";
 import { LcmContextEngine } from "./src/context/engine.js";
@@ -1344,8 +1344,11 @@ const lcmPlugin = {
 
     api.registerTool(() => createMemoryAddTool({ config: deps.config }));
 
+    // Redact the absolute db path from operator-visible INFO logs (aggregated
+     // log streams shouldn't expose user-home filesystem layout). Operators can
+     // cross-reference the basename against their configured `dbPath`.
     api.logger.info(
-      `[lcm] Plugin loaded (enabled=${deps.config.enabled}, db=${deps.config.databasePath}, threshold=${deps.config.contextThreshold})`,
+      `[lcm] Plugin loaded (enabled=${deps.config.enabled}, db=<configured>/${basename(deps.config.databasePath)}, threshold=${deps.config.contextThreshold})`,
     );
   },
 };

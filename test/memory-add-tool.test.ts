@@ -25,8 +25,31 @@ function makeConfig(): LcmConfig {
     autocompactDisabled: false,
     timezone: "UTC",
     pruneHeartbeatOk: false,
+    vaultEnabled: false,
+    vaultPath: "",
+    vaultSubdir: "Engram",
+    vaultHomeNoteName: "Home",
+    vaultManualFolders: "Inbox,Manual",
+    vaultClean: true,
+    vaultReportsEnabled: true,
+    obsidianMode: "curated",
+    obsidianExportDiagnostics: false,
   };
 }
+
+type MemoryAddDetails = {
+  stored?: boolean;
+  status?: string;
+  kind?: string;
+  scope?: string;
+  memoryId?: string;
+  episodeId?: string | null;
+  entityIds?: string[];
+  reason?: string;
+  gate?: string;
+  detail?: string;
+  error?: string;
+};
 
 describe("memory_add tool", () => {
   let config: LcmConfig;
@@ -52,11 +75,12 @@ describe("memory_add tool", () => {
       kind: "PREFERENCE",
       scope: "shared",
     });
-    expect(result.details.stored).toBe(true);
-    expect(result.details.kind).toBe("PREFERENCE");
-    expect(result.details.scope).toBe("shared");
-    expect(result.details.status).toBe("active");
-    expect(result.details.memoryId).toMatch(/^mem_/);
+    const details = result.details as MemoryAddDetails;
+    expect(details.stored).toBe(true);
+    expect(details.kind).toBe("PREFERENCE");
+    expect(details.scope).toBe("shared");
+    expect(details.status).toBe("active");
+    expect(details.memoryId).toMatch(/^mem_/);
   });
 
   it("persists to the database", async () => {
@@ -65,13 +89,14 @@ describe("memory_add tool", () => {
       content: "Lucas is a senior software engineer who builds AI memory systems",
       kind: "USER_FACT",
     });
-    expect(result.details.stored).toBe(true);
+    const details = result.details as MemoryAddDetails;
+    expect(details.stored).toBe(true);
 
     // Verify it's actually in the DB
     const db = getLcmConnection(TEST_DB_PATH);
     const row = db
       .prepare("SELECT * FROM memory_current WHERE memory_id = ?")
-      .get(result.details.memoryId) as Record<string, unknown> | undefined;
+      .get(details.memoryId!) as Record<string, unknown> | undefined;
     expect(row).toBeDefined();
     expect(row?.type).toBe("USER_FACT");
     expect(row?.scope).toBe("shared");
@@ -80,29 +105,33 @@ describe("memory_add tool", () => {
   it("rejects junk content", async () => {
     const tool = createMemoryAddTool({ config });
     const result = await tool.execute("t2", { content: "API_KEY=abc123secret" });
-    expect(result.details.stored).toBe(false);
-    expect(result.details.reason).toBe("rejected_quality_gate");
-    expect(result.details.gate).toBe("junk");
+    const details = result.details as MemoryAddDetails;
+    expect(details.stored).toBe(false);
+    expect(details.reason).toBe("rejected_quality_gate");
+    expect(details.gate).toBe("junk");
   });
 
   it("rejects content that is too short", async () => {
     const tool = createMemoryAddTool({ config });
     const result = await tool.execute("t3", { content: "hi" });
-    expect(result.details.stored).toBe(false);
-    expect(result.details.gate).toBe("junk");
-    expect(result.details.detail).toBe("too_short");
+    const details = result.details as MemoryAddDetails;
+    expect(details.stored).toBe(false);
+    expect(details.gate).toBe("junk");
+    expect(details.detail).toBe("too_short");
   });
 
   it("rejects empty content", async () => {
     const tool = createMemoryAddTool({ config });
     const result = await tool.execute("t4", { content: "" });
-    expect(result.details.error).toBeDefined();
+    const details = result.details as MemoryAddDetails;
+    expect(details.error).toBeDefined();
   });
 
   it("returns error for missing content", async () => {
     const tool = createMemoryAddTool({ config });
     const result = await tool.execute("t5", {});
-    expect(result.details.error).toBeDefined();
+    const details = result.details as MemoryAddDetails;
+    expect(details.error).toBeDefined();
   });
 
   it("creates an episode for temporal content", async () => {
@@ -110,15 +139,16 @@ describe("memory_add tool", () => {
     const result = await tool.execute("t6", {
       content: "Today Lucas finished implementing the memory_add tool for engram",
     });
-    expect(result.details.stored).toBe(true);
-    expect(result.details.kind).toBe("EPISODE");
-    expect(result.details.episodeId).toMatch(/^ep_/);
+    const details = result.details as MemoryAddDetails;
+    expect(details.stored).toBe(true);
+    expect(details.kind).toBe("EPISODE");
+    expect(details.episodeId).toMatch(/^ep_/);
 
     // Verify episode in DB
     const db = getLcmConnection(TEST_DB_PATH);
     const ep = db
       .prepare("SELECT * FROM memory_episodes WHERE episode_id = ?")
-      .get(result.details.episodeId) as Record<string, unknown> | undefined;
+      .get(details.episodeId!) as Record<string, unknown> | undefined;
     expect(ep).toBeDefined();
     expect(ep?.status).toBe("completed");
   });
@@ -129,8 +159,9 @@ describe("memory_add tool", () => {
       content: "Lucas attended the OpenClaw architecture review session last week",
       kind: "EPISODE",
     });
-    expect(result.details.kind).toBe("EPISODE");
-    expect(result.details.episodeId).not.toBeNull();
+    const details = result.details as MemoryAddDetails;
+    expect(details.kind).toBe("EPISODE");
+    expect(details.episodeId).not.toBeNull();
   });
 
   it("links entities and creates them in the DB", async () => {
@@ -139,8 +170,9 @@ describe("memory_add tool", () => {
       content: "Lucas and Viktor are collaborating on the engram plugin project",
       entities: ["Lucas", "Viktor"],
     });
-    expect(result.details.stored).toBe(true);
-    expect(result.details.entityIds).toHaveLength(2);
+    const details = result.details as MemoryAddDetails;
+    expect(details.stored).toBe(true);
+    expect(details.entityIds).toHaveLength(2);
 
     const db = getLcmConnection(TEST_DB_PATH);
     const entities = db
@@ -155,8 +187,9 @@ describe("memory_add tool", () => {
     const result = await tool.execute("t9", {
       content: "User prefers TypeScript over JavaScript for all new projects",
     });
-    expect(result.details.stored).toBe(true);
-    expect(result.details.kind).toBe("PREFERENCE");
+    const details = result.details as MemoryAddDetails;
+    expect(details.stored).toBe(true);
+    expect(details.kind).toBe("PREFERENCE");
   });
 
   it("defaults scope to 'shared'", async () => {
@@ -164,7 +197,8 @@ describe("memory_add tool", () => {
     const result = await tool.execute("t10", {
       content: "Lucas is working on an AI-powered memory system for developer agents",
     });
-    expect(result.details.scope).toBe("shared");
+    const details = result.details as MemoryAddDetails;
+    expect(details.scope).toBe("shared");
   });
 
   it("respects custom scope", async () => {
@@ -173,7 +207,8 @@ describe("memory_add tool", () => {
       content: "This project uses TypeScript with strict null checks enabled everywhere",
       scope: "engram",
     });
-    expect(result.details.scope).toBe("engram");
+    const details = result.details as MemoryAddDetails;
+    expect(details.scope).toBe("engram");
   });
 
   it("writes an audit event to memory_events", async () => {
@@ -182,12 +217,13 @@ describe("memory_add tool", () => {
       content: "Lucas decided to use SQLite with WAL mode for the unified memory store",
       kind: "DECISION",
     });
-    expect(result.details.stored).toBe(true);
+    const details = result.details as MemoryAddDetails;
+    expect(details.stored).toBe(true);
 
     const db = getLcmConnection(TEST_DB_PATH);
     const event = db
       .prepare("SELECT * FROM memory_events WHERE memory_id = ?")
-      .get(result.details.memoryId) as Record<string, unknown> | undefined;
+      .get(details.memoryId!) as Record<string, unknown> | undefined;
     expect(event).toBeDefined();
     expect(event?.action).toBe("store");
     expect(event?.component).toBe("memory_add");
