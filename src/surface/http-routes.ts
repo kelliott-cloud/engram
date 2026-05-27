@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { getLcmConnection, closeLcmConnection } from "../db/connection.js";
 import { getLcmDbFeatures } from "../db/features.js";
@@ -446,8 +446,17 @@ export const createLcmHttpHandler = (opts: LcmHttpHandlerOptions) => {
 
       return false;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      sendJson(res, 500, { detail: "internal error", message: msg });
+      // Never leak err.message to the client — it can disclose database
+      // paths, file paths, and other internal state to anyone who can
+      // hit the route. Log the full error server-side with a correlation
+      // id; return only the id to the client so operators can grep logs.
+      const errorId = randomBytes(6).toString("hex");
+      try {
+        console.error(`[engram http-routes] errorId=${errorId}`, err);
+      } catch {
+        // Swallow logging failures — the response is what matters.
+      }
+      sendJson(res, 500, { detail: "internal error", errorId });
       return true;
     }
   };
