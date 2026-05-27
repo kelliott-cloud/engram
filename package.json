@@ -29,8 +29,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "clean": "rm -rf dist",
-    "prepack": "npm run clean && npm run build",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prepare": "npm run clean && npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --dir test",
     "changeset": "changeset",
