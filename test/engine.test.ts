@@ -11,6 +11,10 @@ import { closeLcmConnection } from "../src/db/connection.js";
 import { LcmContextEngine } from "../src/context/engine.js";
 import type { LcmDependencies } from "../src/types.js";
 
+// Library-narrowed union accepted by SessionManager.appendMessage
+// (Message | BashExecutionMessage | CustomMessage<unknown>).
+type AppendMessageInput = Parameters<SessionManager["appendMessage"]>[0];
+
 const tempDirs: string[] = [];
 
 function createTestConfig(databasePath: string): LcmConfig {
@@ -148,7 +152,7 @@ function makeMessage(params: { role?: string; content: unknown }): AgentMessage 
     role: (params.role ?? "assistant") as AgentMessage["role"],
     content: params.content,
     timestamp: Date.now(),
-  } as AgentMessage;
+  } as unknown as AgentMessage;
 }
 
 function estimateAssembledPayloadTokens(messages: AgentMessage[]): number {
@@ -407,22 +411,22 @@ describe("LcmContextEngine.bootstrap", () => {
     const rootUserId = sm.appendMessage({
       role: "user",
       content: [{ type: "text", text: "root user" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
     sm.appendMessage({
       role: "assistant",
       content: [{ type: "text", text: "abandoned assistant" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
     sm.appendMessage({
       role: "user",
       content: [{ type: "text", text: "abandoned user" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
 
     // Re-branch from the first user entry so prior turns are abandoned.
     sm.branch(rootUserId);
     sm.appendMessage({
       role: "assistant",
       content: [{ type: "text", text: "active assistant" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
 
     const engine = createEngine();
     const sessionId = "bootstrap-leaf-path";
@@ -457,11 +461,11 @@ describe("LcmContextEngine.bootstrap", () => {
     sm.appendMessage({
       role: "user",
       content: [{ type: "text", text: "first" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
     sm.appendMessage({
       role: "assistant",
       content: [{ type: "text", text: "second" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
 
     const engine = createEngine();
     const sessionId = "bootstrap-idempotent";
@@ -488,11 +492,11 @@ describe("LcmContextEngine.bootstrap", () => {
     sm.appendMessage({
       role: "user",
       content: [{ type: "text", text: "seed user" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
     sm.appendMessage({
       role: "assistant",
       content: [{ type: "text", text: "seed assistant" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
 
     const engine = createEngine();
     const sessionId = "bootstrap-reconcile-tail";
@@ -504,11 +508,11 @@ describe("LcmContextEngine.bootstrap", () => {
     sm.appendMessage({
       role: "user",
       content: [{ type: "text", text: "lost user turn" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
     sm.appendMessage({
       role: "assistant",
       content: [{ type: "text", text: "lost assistant turn" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
 
     const second = await engine.bootstrap({ sessionId, sessionFile });
     expect(second.bootstrapped).toBe(true);
@@ -532,20 +536,20 @@ describe("LcmContextEngine.bootstrap", () => {
     sm.appendMessage({
       role: "user",
       content: [{ type: "text", text: "seed user" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
     sm.appendMessage({
       role: "assistant",
       content: [{ type: "text", text: "seed assistant" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
     sm.appendMessage({
       role: "assistant",
       content: [{ type: "toolCall", id: "call_existing", name: "read", input: { path: "a.txt" } }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
     sm.appendMessage({
       role: "toolResult",
       toolCallId: "call_existing",
       content: [{ type: "tool_result", tool_use_id: "call_existing", output: { ok: true } }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
 
     const engine = createEngine();
     const sessionId = "bootstrap-reconcile-tool-tail";
@@ -557,12 +561,12 @@ describe("LcmContextEngine.bootstrap", () => {
     sm.appendMessage({
       role: "assistant",
       content: [{ type: "toolCall", id: "call_missing", name: "read", input: { path: "b.txt" } }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
     sm.appendMessage({
       role: "toolResult",
       toolCallId: "call_missing",
       content: [{ type: "tool_result", tool_use_id: "call_missing", output: { ok: true } }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
 
     const second = await engine.bootstrap({ sessionId, sessionFile });
     expect(second.bootstrapped).toBe(true);
@@ -585,21 +589,21 @@ describe("LcmContextEngine.bootstrap", () => {
     sm.appendMessage({
       role: "user",
       content: [{ type: "text", text: "json only user" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
     sm.appendMessage({
       role: "assistant",
       content: [{ type: "text", text: "json only assistant" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
 
     const engine = createEngine();
     const sessionId = "bootstrap-reconcile-no-overlap";
     await engine.ingest({
       sessionId,
-      message: { role: "user", content: "db only user" } as AgentMessage,
+      message: { role: "user", content: "db only user" } as unknown as AgentMessage,
     });
     await engine.ingest({
       sessionId,
-      message: { role: "assistant", content: "db only assistant" } as AgentMessage,
+      message: { role: "assistant", content: "db only assistant" } as unknown as AgentMessage,
     });
 
     const result = await engine.bootstrap({ sessionId, sessionFile });
@@ -619,11 +623,11 @@ describe("LcmContextEngine.bootstrap", () => {
     sm.appendMessage({
       role: "user",
       content: [{ type: "text", text: "bulk one" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
     sm.appendMessage({
       role: "assistant",
       content: [{ type: "text", text: "bulk two" }],
-    } as AgentMessage);
+    } as unknown as AppendMessageInput);
 
     const engine = createEngine();
     const bulkSpy = vi.spyOn(engine.getConversationStore(), "createMessagesBulk");
@@ -665,7 +669,7 @@ describe("LcmContextEngine.assemble canonical path", () => {
     const sessionId = "session-incomplete";
     await engine.ingest({
       sessionId,
-      message: { role: "user", content: "persisted only one message" } as AgentMessage,
+      message: { role: "user", content: "persisted only one message" } as unknown as AgentMessage,
     });
 
     const liveMessages: AgentMessage[] = [
@@ -690,11 +694,11 @@ describe("LcmContextEngine.assemble canonical path", () => {
 
     await engine.ingest({
       sessionId,
-      message: { role: "user", content: "persisted message one" } as AgentMessage,
+      message: { role: "user", content: "persisted message one" } as unknown as AgentMessage,
     });
     await engine.ingest({
       sessionId,
-      message: { role: "assistant", content: "persisted message two" } as AgentMessage,
+      message: { role: "assistant", content: "persisted message two" } as unknown as AgentMessage,
     });
 
     const liveMessages: AgentMessage[] = [{ role: "user", content: "live turn" }] as AgentMessage[];
@@ -707,7 +711,9 @@ describe("LcmContextEngine.assemble canonical path", () => {
     expect(result.messages).not.toBe(liveMessages);
     expect(result.messages).toHaveLength(2);
     expect(result.messages[0].role).toBe("user");
-    expect(result.messages[0].content).toBe("persisted message one");
+    expect("content" in result.messages[0] ? result.messages[0].content : "").toBe(
+      "persisted message one",
+    );
     expect(result.messages[1].role).toBe("assistant");
     expect(result.estimatedTokens).toBeGreaterThan(0);
   });
@@ -722,7 +728,7 @@ describe("LcmContextEngine.assemble canonical path", () => {
         message: {
           role: "user",
           content: `turn ${i} ${"x".repeat(396)}`,
-        } as AgentMessage,
+        } as unknown as AgentMessage,
       });
     }
 
@@ -733,7 +739,9 @@ describe("LcmContextEngine.assemble canonical path", () => {
     });
 
     expect(result.messages.length).toBeLessThan(12);
-    expect(result.messages[0].content).not.toBe(`turn 0 ${"x".repeat(396)}`);
+    expect("content" in result.messages[0] ? result.messages[0].content : undefined).not.toBe(
+      `turn 0 ${"x".repeat(396)}`,
+    );
   });
 
   it("falls back to live messages if assembler throws", async () => {
@@ -742,7 +750,7 @@ describe("LcmContextEngine.assemble canonical path", () => {
 
     await engine.ingest({
       sessionId,
-      message: { role: "user", content: "persisted message" } as AgentMessage,
+      message: { role: "user", content: "persisted message" } as unknown as AgentMessage,
     });
 
     const originalAssembler = (engine as unknown as { assembler: { assemble: unknown } }).assembler;
@@ -776,7 +784,7 @@ describe("LcmContextEngine.assemble canonical path", () => {
         role: "toolResult",
         toolCallId: "call_orphan",
         content: [{ type: "tool_result", tool_use_id: "call_orphan", content: "ok" }],
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
 
     const result = await engine.assemble({
@@ -797,7 +805,7 @@ describe("LcmContextEngine.assemble canonical path", () => {
       message: {
         role: "assistant",
         content: [{ type: "toolCall", id: "call_2", name: "read", input: { path: "foo.txt" } }],
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
 
     const result = await engine.assemble({
@@ -832,11 +840,11 @@ describe("LcmContextEngine.assemble canonical path", () => {
             arguments: '{"cmd":"pwd"}',
           },
         ],
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
     await engine.ingest({
       sessionId,
-      message: { role: "user", content: "interleaved user turn" } as AgentMessage,
+      message: { role: "user", content: "interleaved user turn" } as unknown as AgentMessage,
     });
     await engine.ingest({
       sessionId,
@@ -847,7 +855,7 @@ describe("LcmContextEngine.assemble canonical path", () => {
         content: [{ type: "function_call_output", call_id: "fc_1", output: "/tmp" }],
         isError: false,
         timestamp: Date.now(),
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
 
     const result = await engine.assemble({
@@ -877,11 +885,11 @@ describe("LcmContextEngine.assemble canonical path", () => {
 
     await engine.ingest({
       sessionId,
-      message: { role: "user", content: "plain context one" } as AgentMessage,
+      message: { role: "user", content: "plain context one" } as unknown as AgentMessage,
     });
     await engine.ingest({
       sessionId,
-      message: { role: "assistant", content: "plain context two" } as AgentMessage,
+      message: { role: "assistant", content: "plain context two" } as unknown as AgentMessage,
     });
 
     const result = await engine.assemble({
@@ -900,7 +908,7 @@ describe("LcmContextEngine.assemble canonical path", () => {
 
     await engine.ingest({
       sessionId,
-      message: { role: "user", content: "seed message" } as AgentMessage,
+      message: { role: "user", content: "seed message" } as unknown as AgentMessage,
     });
 
     const conversation = await engine.getConversationStore().getConversationBySessionId(sessionId);
@@ -953,7 +961,7 @@ describe("LcmContextEngine.assemble canonical path", () => {
 
     await engine.ingest({
       sessionId,
-      message: { role: "user", content: "seed message" } as AgentMessage,
+      message: { role: "user", content: "seed message" } as unknown as AgentMessage,
     });
 
     const conversation = await engine.getConversationStore().getConversationBySessionId(sessionId);
@@ -1043,7 +1051,7 @@ describe("LcmContextEngine fidelity and token budget", () => {
     const assistantToolCall = {
       role: "assistant",
       content: [{ type: "toolCall", id: "call_123", name: "read", input: { path: "foo.txt" } }],
-    } as AgentMessage;
+    } as unknown as AgentMessage;
     const toolResult = {
       role: "toolResult",
       toolCallId: "call_123",
@@ -1054,7 +1062,7 @@ describe("LcmContextEngine fidelity and token budget", () => {
           content: [{ type: "text", text: "command output" }],
         },
       ],
-    } as AgentMessage;
+    } as unknown as AgentMessage;
 
     await engine.ingest({
       sessionId,
@@ -1108,7 +1116,7 @@ describe("LcmContextEngine fidelity and token budget", () => {
       message: {
         role: "assistant",
         content: [{ type: "toolCall", id: "call_456", name: "bash", input: { command: "ls" } }],
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
 
     await engine.ingest({
@@ -1119,7 +1127,7 @@ describe("LcmContextEngine fidelity and token budget", () => {
         toolName: "bash",
         content: [{ type: "text", text: "file1.txt\nfile2.txt" }],
         isError: false,
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
 
     const conversation = await engine.getConversationStore().getConversationBySessionId(sessionId);
@@ -1160,7 +1168,7 @@ describe("LcmContextEngine fidelity and token budget", () => {
       message: {
         role: "assistant",
         content: [{ type: "toolCall", id: "call_457", name: "bash", input: { command: "false" } }],
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
 
     await engine.ingest({
@@ -1171,7 +1179,7 @@ describe("LcmContextEngine fidelity and token budget", () => {
         toolName: "bash",
         content: [{ type: "text", text: "command failed" }],
         isError: true,
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
 
     const conversation = await engine.getConversationStore().getConversationBySessionId(sessionId);
@@ -1212,7 +1220,7 @@ describe("LcmContextEngine fidelity and token budget", () => {
       message: {
         role: "assistant",
         content: [{ type: "toolCall", id: "call_458", name: "bash", input: { command: "pwd" } }],
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
 
     await engine.ingest({
@@ -1223,7 +1231,7 @@ describe("LcmContextEngine fidelity and token budget", () => {
         toolName: "bash",
         content: "/tmp/project",
         isError: false,
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
 
     const conversation = await engine.getConversationStore().getConversationBySessionId(sessionId);
@@ -1282,7 +1290,7 @@ describe("LcmContextEngine fidelity and token budget", () => {
             arguments: '{"cmd":"pwd"}',
           },
         ],
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
     await engine.ingest({
       sessionId,
@@ -1293,7 +1301,7 @@ describe("LcmContextEngine fidelity and token budget", () => {
         content: [{ type: "function_call_output", call_id: "fc_2", output: { cwd: "/tmp" } }],
         isError: false,
         timestamp: Date.now(),
-      } as AgentMessage,
+      } as unknown as AgentMessage,
     });
 
     const conversation = await engine.getConversationStore().getConversationBySessionId(sessionId);
@@ -1475,7 +1483,10 @@ describe("LcmContextEngine fidelity and token budget", () => {
     });
 
     const assembledText = assembled.messages
-      .map((message) => (typeof message.content === "string" ? message.content : ""))
+      .map((message) => {
+        if (!("content" in message)) return "";
+        return typeof message.content === "string" ? message.content : "";
+      })
       .join("\n");
     expect(assembledText).toContain("keep this turn");
     expect(assembledText).not.toContain("heartbeat poll");
@@ -1555,7 +1566,7 @@ describe("LcmContextEngine.compact token budget plumbing", () => {
 
     await engine.ingest({
       sessionId,
-      message: { role: "user", content: "hello compact" } as AgentMessage,
+      message: { role: "user", content: "hello compact" } as unknown as AgentMessage,
     });
 
     const result = await engine.compact({
@@ -1578,7 +1589,7 @@ describe("LcmContextEngine.compact token budget plumbing", () => {
 
     await engine.ingest({
       sessionId,
-      message: { role: "user", content: "small message" } as AgentMessage,
+      message: { role: "user", content: "small message" } as unknown as AgentMessage,
     });
 
     const result = await engine.compact({
@@ -1622,7 +1633,7 @@ describe("LcmContextEngine.compact token budget plumbing", () => {
 
     await engine.ingest({
       sessionId: "manual-compact-session",
-      message: { role: "user", content: "trigger manual compact" } as AgentMessage,
+      message: { role: "user", content: "trigger manual compact" } as unknown as AgentMessage,
     });
 
     const result = await engine.compact({
@@ -1677,7 +1688,7 @@ describe("LcmContextEngine.compact token budget plumbing", () => {
 
     await engine.ingest({
       sessionId: "threshold-target-session",
-      message: { role: "user", content: "trigger" } as AgentMessage,
+      message: { role: "user", content: "trigger" } as unknown as AgentMessage,
     });
 
     const result = await engine.compact({
@@ -1732,7 +1743,7 @@ describe("LcmContextEngine.compact token budget plumbing", () => {
 
     await engine.ingest({
       sessionId: "observed-token-session",
-      message: { role: "user", content: "trigger" } as AgentMessage,
+      message: { role: "user", content: "trigger" } as unknown as AgentMessage,
     });
 
     const result = await engine.compact({
@@ -1780,7 +1791,7 @@ describe("LcmContextEngine.compact token budget plumbing", () => {
 
     await engine.ingest({
       sessionId: "under-target-session",
-      message: { role: "user", content: "trigger" } as AgentMessage,
+      message: { role: "user", content: "trigger" } as unknown as AgentMessage,
     });
 
     const result = await engine.compact({
@@ -1822,7 +1833,7 @@ describe("LcmContextEngine.compact token budget plumbing", () => {
 
     await engine.ingest({
       sessionId: "forced-sweep-live-overflow",
-      message: { role: "user", content: "trigger" } as AgentMessage,
+      message: { role: "user", content: "trigger" } as unknown as AgentMessage,
     });
 
     const result = await engine.compact({

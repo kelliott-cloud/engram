@@ -590,6 +590,13 @@ function extractMessageText(content: unknown): string {
     .join("\n");
 }
 
+/** Safely read `content` from an AgentMessage that may not have it (BashExecutionMessage). */
+function getMessageContent(msg: unknown): unknown {
+  return msg && typeof msg === "object" && "content" in msg
+    ? (msg as { content: unknown }).content
+    : undefined;
+}
+
 const CONV_ID = 1;
 
 /**
@@ -701,7 +708,7 @@ describe("LCM integration: ingest -> assemble", () => {
 
     // Verify chronological order by checking content
     for (let i = 0; i < 5; i++) {
-      expect(extractMessageText(result.messages[i].content)).toBe(`Message ${i}`);
+      expect(extractMessageText(getMessageContent(result.messages[i]))).toBe(`Message ${i}`);
     }
   });
 
@@ -725,7 +732,7 @@ describe("LCM integration: ingest -> assemble", () => {
     // Fresh tail (last 4) should always be included
     const lastFour = result.messages.slice(-4);
     for (let i = 0; i < 4; i++) {
-      expect(extractMessageText(lastFour[i].content)).toContain(`M${6 + i}`);
+      expect(extractMessageText(getMessageContent(lastFour[i]))).toContain(`M${6 + i}`);
     }
 
     // We should have fewer than 10 messages total (oldest dropped)
@@ -769,11 +776,11 @@ describe("LCM integration: ingest -> assemble", () => {
 
     // The summary should appear as a user message with an XML summary wrapper.
     const summaryMsg = result.messages.find((m) =>
-      m.content.includes('<summary id="sum_test_001"'),
+      extractMessageText(getMessageContent(m)).includes('<summary id="sum_test_001"'),
     );
     expect(summaryMsg).toBeDefined();
     expect(summaryMsg!.role).toBe("user");
-    expect(summaryMsg!.content).toContain("This is a leaf summary");
+    expect(extractMessageText(getMessageContent(summaryMsg!))).toContain("This is a leaf summary");
   });
 
   it("empty conversation returns empty result", async () => {
@@ -818,7 +825,7 @@ describe("LCM integration: ingest -> assemble", () => {
 
     expect(result.messages).toHaveLength(1);
     expect(result.messages[0].role).toBe("assistant");
-    expect(extractMessageText(result.messages[0].content)).toContain(
+    expect(extractMessageText(getMessageContent(result.messages[0]))).toContain(
       "legacy tool output without call id",
     );
   });
@@ -1496,7 +1503,7 @@ describe("LCM integration: compaction", () => {
     });
 
     expect(result.actionTaken).toBe(true);
-    const firstSourceText = summarize.mock.calls[0]?.[0] as string;
+    const firstSourceText = (summarize.mock.calls[0] as unknown as [string])?.[0] as string;
     expect(firstSourceText).toMatch(
       /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC - \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC\]/,
     );
@@ -2438,11 +2445,15 @@ describe("LCM integration: full round-trip", () => {
     expect(assembleResult.stats.rawMessageCount).toBeGreaterThan(0);
 
     // At least one assembled message should contain summary content
-    const hasSummary = assembleResult.messages.some((m) => m.content.includes("<summary id="));
+    const hasSummary = assembleResult.messages.some((m) =>
+      extractMessageText(getMessageContent(m)).includes("<summary id="),
+    );
     expect(hasSummary).toBe(true);
 
     // Fresh tail messages (last 4) should be present
-    const lastMsgContent = assembleResult.messages[assembleResult.messages.length - 1].content;
+    const lastMsgContent = getMessageContent(
+      assembleResult.messages[assembleResult.messages.length - 1],
+    );
     expect(extractMessageText(lastMsgContent)).toContain("Discussion turn 19");
 
     // 4. Use retrieval to describe the created summary
@@ -2559,9 +2570,10 @@ describe("LCM integration: full round-trip", () => {
     let sawSummary = false;
     let sawFreshAfterSummary = false;
     for (const msg of result.messages) {
-      if (msg.content.includes("<summary id=")) {
+      const text = extractMessageText(getMessageContent(msg));
+      if (text.includes("<summary id=")) {
         sawSummary = true;
-      } else if (sawSummary && msg.content.includes("Sequential message")) {
+      } else if (sawSummary && text.includes("Sequential message")) {
         sawFreshAfterSummary = true;
       }
     }
