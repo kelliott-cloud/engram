@@ -1,0 +1,66 @@
+{
+  "name": "@applied-leverage/engram",
+  "version": "0.1.0",
+  "description": "Unified memory and context engine plugin for OpenClaw — DAG-based summarization, retrieval, and sub-agent expansion",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "engram": "dist/src/cli/engram-cli.js"
+  },
+  "license": "MIT",
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "context-management",
+    "memory",
+    "llm",
+    "summarization",
+    "conversation-memory",
+    "dag"
+  ],
+  "files": [
+    "dist/",
+    "openclaw.plugin.json",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "prepack": "npm run clean && npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --dir test",
+    "changeset": "changeset",
+    "release:verify": "npm test && npm pack --dry-run",
+    "version-packages": "changeset version"
+  },
+  "dependencies": {
+    "@mariozechner/pi-agent-core": "0.73.1",
+    "@mariozechner/pi-ai": "0.73.1",
+    "@sinclair/typebox": "0.34.48"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.30.0",
+    "@mariozechner/pi-coding-agent": "0.73.1",
+    "@types/node": "^22.10.0",
+    "openclaw": "*",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  }
+}
